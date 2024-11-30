@@ -5,11 +5,13 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"sync"
 	"time"
 
 	"FileExpress/admin"
 	"FileExpress/share"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
@@ -23,8 +25,33 @@ type JwtCustomClaims struct {
 	jwt.RegisteredClaims
 }
 
+// 自定义验证器
+type CustomValidator struct {
+	once      sync.Once
+	validator *validator.Validate
+}
+
+func (cv *CustomValidator) Validate(i interface{}) error {
+	cv.lazyInit()
+	if err := cv.validator.Struct(i); err != nil {
+		// 返回验证错误
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	return nil
+}
+
+// 初始化验证器
+func (cv *CustomValidator) lazyInit() {
+	cv.once.Do(func() {
+		cv.validator = validator.New()
+	})
+}
+
 func main() {
 	e := echo.New()
+
+	// 使用自定义验证器
+	e.Validator = &CustomValidator{}
 
 	// 中间件
 	e.Use(middleware.Logger())
@@ -46,7 +73,9 @@ func main() {
 	share_v1 := e.Group("/api/v1/share")
 	{
 		share_v1.POST("/text", share.Text)
+		share_v1.GET("/text", share.Text)
 		share_v1.POST("/file", share.File)
+		share_v1.GET("/file", share.File)
 		share_v1.POST("/select", share.Select)
 		share_v1.POST("/download", share.Download)
 		share_v1.GET("/code/get", share.GetCodeFile)
