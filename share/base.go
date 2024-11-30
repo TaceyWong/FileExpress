@@ -1,6 +1,7 @@
 package share
 
 import (
+	"FileExpress/core"
 	"math/rand"
 	"time"
 )
@@ -66,9 +67,13 @@ func GetExpireInfo(expireValue int, expireType ExpireType) *ExpireInfo {
 // GetRandomCode 生成随机码
 func GetRandomCode(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	code := make([]byte, length)
-	for i := range code {
-		code[i] = charset[rand.Intn(len(charset))]
+	for {
+		code := make([]byte, length)
+		for i := range code {
+			code[i] = charset[rand.Intn(len(charset))]
+		}
+		if err := core.DB.Where("code = ?", string(code)).Take(&ExpireInfo{}).Error; err != nil {
+			return string(code)
+		}
 	}
-	return string(code)
 }
